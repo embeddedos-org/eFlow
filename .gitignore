@@ -1,0 +1,9 @@
+build/
+dist/
+*.o
+*.a
+*.so
+__pycache__/
+*.py[cod]
+.venv/
+.DS_Store
