@@ -1,0 +1,1 @@
+{"edges":[{"from":"temp:out","to":"smooth:in"},{"from":"smooth:out","to":"console:in"}],"flow":"temp-monitor","nodes":[{"id":"temp","params":{"addr":"0x48","rate_hz":1},"type":"sensor.tmp117"},{"id":"smooth","params":{"window":8},"type":"filter.moving_avg"},{"id":"console","params":{},"type":"debug.console"}],"version":1}
