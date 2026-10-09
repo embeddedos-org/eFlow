@@ -1,0 +1,44 @@
+# eFlow
+
+> llms.txt for the eFlow repository (embeddedos-org/eFlow).
+> Status: PLANNED — there is no implementation in this repository yet.
+
+eFlow is visual programming and dataflow authoring for EmbeddedOS,
+layered on EoStudio and eBuild. It does not live in `eos` today; the
+design host for visual authoring is EoStudio, and the build target is
+the project shape `ebuild new` produces.
+
+## What eFlow owns
+
+- Visual/dataflow authoring of embedded applications
+- Generation into the same project shape `ebuild new` produces
+- Round-tripping against EoStudio's editors
+
+## The dataflow model (draft, pre-implementation)
+
+A flow is a JSON document with `nodes` and `edges`. Node `type` is a
+dotted capability path `<domain>.<kind>` with domains: `sensor`,
+`filter`, `actuator`, `logic`, `net`, `debug` (new domains need a
+maintainer's sign-off). Design goals: author embedded behavior visually
+(sensor → filter → actuate); generate C sources + build files for the
+target (the interpreter is host-side only, for simulation/testing);
+the JSON graph is the single source of truth shared by EoStudio's
+editors and the CLI compiler. Non-goals: general-purpose visual
+language, live reprogramming of deployed devices, replacing C for
+tight control loops.
+
+## Repository layout
+
+- `README.md` — what eFlow is and (not) where the code lives
+- `docs/dataflow-design.md` — the draft graph model (nodes, edges,
+  types, generation contract)
+- `docs/review-note-2026-10-07.md` — dated review note on PR #1
+- No source directories yet; this repo exists to hold the component's
+  home, issue tracker, and decisions before any code moves.
+
+## For agents
+
+eFlow is the greenfield-build candidate in the org's plan: when
+prototyping starts, the host is EoStudio and the output contract is
+the `ebuild new` project shape. The JSON graph model in
+`docs/dataflow-design.md` is the vocabulary prototypes must agree on.
