@@ -1,0 +1,77 @@
+{
+  "$id": "https://www.embeddedos.org/schema/eflow-flow.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "A flow is a JSON document: named nodes wired by edges. The graph must be a DAG; cycles are rejected at load. Node types are dotted capability paths (<domain>.<kind>) from the registry in docs/dataflow-design.md. Agents generating flows MUST validate against this schema before emitting (validate-before-run).",
+  "properties": {
+    "edges": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "description": "<node-id>:<out-port>.",
+            "pattern": "^[^:]+:[^:]+$",
+            "type": "string"
+          },
+          "to": {
+            "description": "<node-id>:<in-port>.",
+            "pattern": "^[^:]+:[^:]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "flow": {
+      "description": "Flow name, kebab-case, unique per project.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "nodes": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Unique within the flow.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "params": {
+            "description": "Node-type-specific configuration, plain JSON values.",
+            "type": "object"
+          },
+          "type": {
+            "description": "Dotted capability path <domain>.<kind>; domains: sensor, filter, actuator, logic, net, debug.",
+            "pattern": "^[a-z]+\\.[a-z0-9_]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "version": {
+      "const": 1,
+      "description": "Flow format version. The v1 interpreter only loads version 1.",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "flow",
+    "version",
+    "nodes",
+    "edges"
+  ],
+  "title": "eFlow dataflow definition",
+  "type": "object"
+}

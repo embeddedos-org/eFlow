@@ -1,7 +1,10 @@
 # eFlow
 
 > llms.txt for the eFlow repository (embeddedos-org/eFlow).
-> Status: PLANNED — there is no implementation in this repository yet.
+> Status: PROTOTYPE — host-side interpreter (`eflow/interpreter.py`),
+> example flows (`eflow/flows/`), and the flow JSON Schema
+> (`schema/eflow-flow.schema.json`) are implemented; target codegen is
+> still future work.
 
 eFlow is visual programming and dataflow authoring for EmbeddedOS,
 layered on EoStudio and eBuild. It does not live in `eos` today; the
@@ -33,12 +36,20 @@ tight control loops.
 - `docs/dataflow-design.md` — the draft graph model (nodes, edges,
   types, generation contract)
 - `docs/review-note-2026-10-07.md` — dated review note on PR #1
-- No source directories yet; this repo exists to hold the component's
-  home, issue tracker, and decisions before any code moves.
+- `eflow/interpreter.py` — host-side interpreter: `load()` validates a
+  flow (ids, types, ports, edge types, acyclicity), `tick()`/`run_flow()`
+  simulate it deterministically
+- `eflow/flows/` — example flows (`temp_monitor.json`, `fan_control.json`)
+- `schema/eflow-flow.schema.json` — the agent-facing contract for flow
+  documents (validate-before-run); `tests/test_flow_schema.py` pins the
+  example flows to it
+- `tests/test_interpreter.py` — interpreter unit tests
 
 ## For agents
 
-eFlow is the greenfield-build candidate in the org's plan: when
-prototyping starts, the host is EoStudio and the output contract is
-the `ebuild new` project shape. The JSON graph model in
-`docs/dataflow-design.md` is the vocabulary prototypes must agree on.
+eFlow is the greenfield-build candidate in the org's plan: the host
+is EoStudio and the output contract is the `ebuild new` project shape.
+Agents generating flows MUST validate against
+`schema/eflow-flow.schema.json` before emitting; the interpreter's
+`load()` is the semantic second layer (unknown types, bad ports, cycles
+all raise `FlowError`).
