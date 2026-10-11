@@ -39,7 +39,11 @@ tight control loops.
 - `eflow/interpreter.py` — host-side interpreter: `load()` validates a
   flow (ids, types, ports, edge types, acyclicity), `tick()`/`run_flow()`
   simulate it deterministically
+- `eflow/cli.py` — validate-before-run CLI: `python -m eflow validate
+  <flow.json>` checks schema + interpreter `load()`, never executes
 - `eflow/flows/` — example flows (`temp_monitor.json`, `fan_control.json`)
+- `skills/eflow-validate/` — agent skill for the validate command
+  (EoStudio skills-catalog format: SKILL.md + references/)
 - `schema/eflow-flow.schema.json` — the agent-facing contract for flow
   documents (validate-before-run); `tests/test_flow_schema.py` pins the
   example flows to it
@@ -53,3 +57,10 @@ Agents generating flows MUST validate against
 `schema/eflow-flow.schema.json` before emitting; the interpreter's
 `load()` is the semantic second layer (unknown types, bad ports, cycles
 all raise `FlowError`).
+
+- Validate-before-run CLI: `python -m eflow validate <flow.json>`
+  (`eflow/cli.py`) checks both layers without executing. Exit 0 on
+  valid; exit 2 with machine-readable `{"ok": false, "errors": [...]}`
+  on stdout on invalid or unreadable input (missing file is fail-closed).
+- Agent skill: `skills/eflow-validate/` (EoStudio skills-catalog
+  format) documents the validate command and its discipline for agents.
