@@ -1,13 +1,9 @@
 # SPDX-License-Identifier: MIT
 """Agent-facing validate-before-run CLI for eFlow.
 
-``python -m eflow run <flow.json>`` runs the exact validate pipeline
-first (see below) and only executes a flow that validates; on any
-validation error it exits 2 with the same machine-readable error
-shape as ``validate`` and executes nothing.
-
 ``python -m eflow validate <flow.json>`` checks a flow document in two
-layers and never executes it:
+layers and never executes it. ``python -m eflow run <flow.json>`` runs
+the exact same validation first and executes only a valid flow:
 
 1. Structural — the rules from ``schema/eflow-flow.schema.json``,
    implemented dependency-free (CI installs only pytest, so the ``jsonschema``
@@ -177,46 +173,40 @@ def validate_command(path: str) -> int:
     return EXIT_OK
 
 
-def _json_safe(value: Any) -> Any:
-    """Recursively convert tuples (sink-log entries) to JSON-safe lists."""
-    if isinstance(value, dict):
-        return {str(k): _json_safe(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_json_safe(v) for v in value]
-    return value
+def _read_flow(path: str, verb: str):
+    """Read + parse a flow file; returns (flow, None) or (None, exit_code).
 
-
-def _read_flow(path: str):
-    """Read + parse a flow file; returns (flow, error_payload_or_None)."""
+    Emits the same machine-readable error shape as validate on failure.
+    """
     try:
         raw = Path(path).read_text(encoding="utf-8")
     except OSError as exc:
         reason = exc.strerror or str(exc)
-        return None, {"ok": False, "path": path,
-                      "errors": [f"cannot read file: {reason}"],
-                      "warnings": []}
+        _emit({"ok": False, "path": path,
+               "errors": [f"cannot read file: {reason}"], "warnings": []})
+        print(f"eflow {verb}: cannot read {path}: {reason}", file=sys.stderr)
+        return None, EXIT_INVALID
     try:
         return json.loads(raw), None
     except json.JSONDecodeError as exc:
-        return None, {"ok": False, "path": path,
-                      "errors": [f"invalid JSON: {exc}"], "warnings": []}
+        _emit({"ok": False, "path": path,
+               "errors": [f"invalid JSON: {exc}"], "warnings": []})
+        print(f"eflow {verb}: invalid JSON in {path}: {exc}",
+              file=sys.stderr)
+        return None, EXIT_INVALID
 
 
 def run_command(path: str, ticks: int = 20) -> int:
-    """Validate one flow file, then execute it. Returns 0 or 2.
+    """Validate, then execute one flow file. Returns 0 or 2.
 
-    Runs the exact validate pipeline first (structural rules plus
-    ``interpreter.load()`` via :func:`validate_document`); on any
-    validation error, exits 2 with the same machine-readable shape as
-    ``validate`` and executes nothing. On success, executes via the
-    interpreter's ``run_flow`` entry point and prints the sink log as
-    JSON on stdout.
+    The validate pipeline runs first and gates execution: on any
+    validation error the verdict is emitted and NOTHING executes
+    (exit 2, same shape as ``validate``). On success the interpreter
+    runs the flow and the sink log is emitted as JSON.
     """
-    flow, error_payload = _read_flow(path)
-    if error_payload is not None:
-        _emit(error_payload)
-        print(f"eflow run: {error_payload['errors'][0]}", file=sys.stderr)
-        return EXIT_INVALID
+    flow, err = _read_flow(path, "run")
+    if err is not None:
+        return err
     errors, warns, _nnodes, _nedges = validate_document(flow)
     if errors:
         _emit({"ok": False, "path": path, "errors": errors,
@@ -225,16 +215,15 @@ def run_command(path: str, ticks: int = 20) -> int:
               "nothing executed", file=sys.stderr)
         return EXIT_INVALID
     try:
-        result = run_flow(flow, ticks=ticks)
-    except Exception as exc:  # validated flow should not fail; fail closed
-        _emit({"ok": False, "path": path,
-               "errors": [f"execution failed: {exc}"], "warnings": warns})
-        print(f"eflow run: execution failed for {path}: {exc}",
+        log = run_flow(flow, ticks=ticks)
+    except FlowError as exc:  # pragma: no cover - validate already gated
+        _emit({"ok": False, "path": path, "errors": [str(exc)],
+               "warnings": warns})
+        print(f"eflow run: {path} failed during execution: {exc}",
               file=sys.stderr)
         return EXIT_INVALID
     _emit({"ok": True, "path": path, "flow": flow.get("flow"),
-           "ticks": ticks, "warnings": warns,
-           "result": _json_safe(result)})
+           "ticks": ticks, "warnings": warns, "log": log})
     return EXIT_OK
 
 
@@ -250,7 +239,7 @@ def main(argv: List[str] | None = None) -> int:
         "run", help="validate a flow JSON file, then execute it")
     p_run.add_argument("flow", help="path to the flow JSON file")
     p_run.add_argument("--ticks", type=int, default=20,
-                       help="number of interpreter ticks to run (default: 20)")
+                       help="interpreter ticks to run (default: 20)")
     args = ap.parse_args(argv)
     if args.command == "validate":
         return validate_command(args.flow)
@@ -261,4 +250,3 @@ def main(argv: List[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
