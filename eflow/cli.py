@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: MIT
 """Agent-facing validate-before-run CLI for eFlow.
 
+``python -m eflow run <flow.json>`` runs the exact validate pipeline
+first (see below) and only executes a flow that validates; on any
+validation error it exits 2 with the same machine-readable error
+shape as ``validate`` and executes nothing.
+
 ``python -m eflow validate <flow.json>`` checks a flow document in two
 layers and never executes it:
 
@@ -31,7 +36,7 @@ import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-from .interpreter import FLOW_VERSION, FlowError, load
+from .interpreter import FLOW_VERSION, FlowError, load, run_flow
 
 EXIT_OK = 0
 EXIT_INVALID = 2
@@ -172,19 +177,88 @@ def validate_command(path: str) -> int:
     return EXIT_OK
 
 
+def _json_safe(value: Any) -> Any:
+    """Recursively convert tuples (sink-log entries) to JSON-safe lists."""
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    return value
+
+
+def _read_flow(path: str):
+    """Read + parse a flow file; returns (flow, error_payload_or_None)."""
+    try:
+        raw = Path(path).read_text(encoding="utf-8")
+    except OSError as exc:
+        reason = exc.strerror or str(exc)
+        return None, {"ok": False, "path": path,
+                      "errors": [f"cannot read file: {reason}"],
+                      "warnings": []}
+    try:
+        return json.loads(raw), None
+    except json.JSONDecodeError as exc:
+        return None, {"ok": False, "path": path,
+                      "errors": [f"invalid JSON: {exc}"], "warnings": []}
+
+
+def run_command(path: str, ticks: int = 20) -> int:
+    """Validate one flow file, then execute it. Returns 0 or 2.
+
+    Runs the exact validate pipeline first (structural rules plus
+    ``interpreter.load()`` via :func:`validate_document`); on any
+    validation error, exits 2 with the same machine-readable shape as
+    ``validate`` and executes nothing. On success, executes via the
+    interpreter's ``run_flow`` entry point and prints the sink log as
+    JSON on stdout.
+    """
+    flow, error_payload = _read_flow(path)
+    if error_payload is not None:
+        _emit(error_payload)
+        print(f"eflow run: {error_payload['errors'][0]}", file=sys.stderr)
+        return EXIT_INVALID
+    errors, warns, _nnodes, _nedges = validate_document(flow)
+    if errors:
+        _emit({"ok": False, "path": path, "errors": errors,
+               "warnings": warns})
+        print(f"eflow run: {path} INVALID ({len(errors)} error(s)); "
+              "nothing executed", file=sys.stderr)
+        return EXIT_INVALID
+    try:
+        result = run_flow(flow, ticks=ticks)
+    except Exception as exc:  # validated flow should not fail; fail closed
+        _emit({"ok": False, "path": path,
+               "errors": [f"execution failed: {exc}"], "warnings": warns})
+        print(f"eflow run: execution failed for {path}: {exc}",
+              file=sys.stderr)
+        return EXIT_INVALID
+    _emit({"ok": True, "path": path, "flow": flow.get("flow"),
+           "ticks": ticks, "warnings": warns,
+           "result": _json_safe(result)})
+    return EXIT_OK
+
+
 def main(argv: List[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         prog="eflow",
-        description="eFlow validate-before-run CLI (validates, never runs)")
+        description="eFlow validate-before-run CLI")
     sub = ap.add_subparsers(dest="command", required=True)
     p_val = sub.add_parser("validate",
                            help="validate a flow JSON file (no execution)")
     p_val.add_argument("flow", help="path to the flow JSON file")
+    p_run = sub.add_parser(
+        "run", help="validate a flow JSON file, then execute it")
+    p_run.add_argument("flow", help="path to the flow JSON file")
+    p_run.add_argument("--ticks", type=int, default=20,
+                       help="number of interpreter ticks to run (default: 20)")
     args = ap.parse_args(argv)
     if args.command == "validate":
         return validate_command(args.flow)
+    if args.command == "run":
+        return run_command(args.flow, ticks=args.ticks)
     return EXIT_INVALID  # pragma: no cover
 
 
 if __name__ == "__main__":
     sys.exit(main())
+
