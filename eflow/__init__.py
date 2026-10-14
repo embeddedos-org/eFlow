@@ -5,3 +5,5 @@ load/validate a JSON flow, topologically order it, and tick it
 deterministically. Target codegen walks the same order; the interpreter
 never ships to the device.
 """
+
+__version__ = "0.1.0"

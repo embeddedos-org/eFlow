@@ -1,0 +1,9 @@
+{
+  "name": "io.github.embeddedos-org/eflow",
+  "description": "eFlow — visual dataflow authoring for EmbeddedOS. Exposes the eflow_validate MCP tool: validates a flow document (schema + semantic load) with the CLI's machine-readable verdict, without executing it.",
+  "version": "0.1.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/embeddedos-org/eFlow"
+  }
+}

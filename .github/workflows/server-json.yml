@@ -1,0 +1,26 @@
+name: server.json validation
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - server.json
+      - eflow/__init__.py
+      - .github/workflows/server-json.yml
+  pull_request:
+    paths:
+      - server.json
+      - eflow/__init__.py
+      - .github/workflows/server-json.yml
+
+permissions:
+  contents: read
+
+jobs:
+  server-json:
+    uses: embeddedos-org/.github/.github/workflows/reusable-server-json.yml@master
+    with:
+      server_json_path: server.json
+      # Must equal __version__ in eflow/__init__.py — bump both
+      # together. The reusable validator fails on drift.
+      expected_version: "0.1.0"
