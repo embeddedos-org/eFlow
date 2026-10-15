@@ -64,3 +64,34 @@ See `references/flow-format.md` for the full contract.
 5. **Pin the interpreter.** This skill validates against the registry
    in `eflow/interpreter.py` at the repo's current HEAD; new node types
    are reviewed changes, not assumptions.
+
+## The MCP tool: `eflow_validate`
+
+The same validation is exposed as an MCP tool
+(`eflow/mcp_tools.py`, registered in the repo-root `server.json`),
+for agents working through the Agent fabric's gateway rather than
+a shell. The contract is identical; only the input shape differs:
+
+- **Input is the flow document, never a path.** The tool takes
+  `{"flow": { ... }}` — the parsed JSON object. An MCP server must
+  not read arbitrary host files on a caller's behalf, so there is
+  no filename argument; read the file yourself and pass its
+  contents.
+- **Output is the CLI verdict, minus `path`:**
+  `{"ok": bool, "errors": [...], "warnings": [...]}` on failure,
+  plus `"flow"`, `"nodes"`, and `"edges"` on success. Parse it
+  exactly as you would the CLI's stdout.
+- **Read-only by construction.** The tool is annotated
+  `readOnlyHint`; the handler calls `validate_document` only and
+  does not import the interpreter's execution surface. Validation
+  through the tool never runs the flow — the same discipline as
+  the CLI, enforced in code.
+- **Fail-closed.** A non-object `flow` returns
+  `{"ok": false, "errors": ["flow must be a JSON object"], ...}`
+  rather than raising, and an unknown tool name through the
+  module's `call_tool` dispatcher returns a structured error.
+
+Prefer the tool when a gateway session is already open; prefer
+the CLI when you are already in a shell with the file on disk.
+Either way: validate before run, and treat `ok: false` as final
+until the document — not the verdict — changes.
