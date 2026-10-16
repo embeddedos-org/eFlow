@@ -41,6 +41,9 @@ tight control loops.
   simulate it deterministically
 - `eflow/cli.py` — validate-before-run CLI: `python -m eflow validate
   <flow.json>` checks schema + interpreter `load()`, never executes
+- `eflow/mcp_server.py` — servable stdio MCP server
+  (`python -m eflow.mcp_server`): JSON-RPC 2.0 framing in the EoSim
+  idiom serving the one tool, `eflow_validate`; validates only
 - `eflow/flows/` — example flows (`temp_monitor.json`, `fan_control.json`)
 - `skills/eflow-validate/` — agent skill for the validate command
   (EoStudio skills-catalog format: SKILL.md + references/)
