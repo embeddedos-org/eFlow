@@ -67,3 +67,4 @@ all raise `FlowError`).
   on stdout on invalid or unreadable input (missing file is fail-closed).
 - Agent skill: `skills/eflow-validate/` (EoStudio skills-catalog
   format) documents the validate command and its discipline for agents.
+- [llms-full.txt](llms-full.txt) — the docs above concatenated as one document
