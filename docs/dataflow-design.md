@@ -1,8 +1,10 @@
 # eFlow dataflow design (draft)
 
-> Status: design document, pre-implementation. eFlow has no code yet; this
-> doc fixes the vocabulary (nodes, edges, types) so the first prototype and
-> the EoStudio visual editors agree on the model.
+> Status: design document, prototype implemented. The host-side prototype
+> now exists (`eflow/interpreter.py`, CLI, MCP server, schema, tests); this
+> doc fixes the vocabulary (nodes, edges, types) so the prototype and
+> the EoStudio visual editors agree on the model. Target codegen is
+> still future work.
 
 ## Goals
 
