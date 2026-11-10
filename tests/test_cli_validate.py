@@ -69,6 +69,21 @@ def test_cyclic_graph_fails(capsys, tmp_path):
     assert any("cycle" in e for e in payload["errors"])
 
 
+def test_input_driven_twice_fails(capsys, tmp_path):
+    # Fan-in to one input port is invalid (flow-format.md: "exactly one edge").
+    path = _write(tmp_path, "fanin.json", _flow_doc(
+        [{"id": "s", "type": "sensor.tmp117", "params": {}},
+         {"id": "f", "type": "filter.moving_avg", "params": {}},
+         {"id": "g", "type": "filter.moving_avg", "params": {}}],
+        [{"from": "s:out", "to": "f:in"},
+         {"from": "f:out", "to": "g:in"},
+         {"from": "s:out", "to": "g:in"}]))
+    code, payload, _err = _run_cli(path, capsys)
+    assert code == EXIT_INVALID == 2
+    assert payload["ok"] is False
+    assert any("more than one edge" in e for e in payload["errors"])
+
+
 def test_missing_file_fails_closed(capsys, tmp_path):
     code, payload, _err = _run_cli(tmp_path / "does-not-exist.json", capsys)
     assert code != 0

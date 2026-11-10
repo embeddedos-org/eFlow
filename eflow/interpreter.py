@@ -139,8 +139,9 @@ def load(flow: Dict[str, Any]) -> Tuple[Dict[str, _Node], List[Tuple[str, str, s
     """Validate a flow document; return (nodes, edges, topo order).
 
     Edges are (src_id, src_port, dst_id, dst_port). Raises FlowError on
-    duplicate ids, unknown types, bad ports, type mismatches, or cycles
-    (the cycle path is included in the message).
+    duplicate ids, unknown types, bad ports, type mismatches, an input
+    port with no edge or more than one, or cycles (the cycle path is
+    included in the message).
     """
     if flow.get("version") != FLOW_VERSION:
         raise FlowError(
@@ -158,9 +159,18 @@ def load(flow: Dict[str, Any]) -> Tuple[Dict[str, _Node], List[Tuple[str, str, s
         nodes[nid] = _Node(nid, spec, n.get("params", {}))
 
     edges: List[Tuple[str, str, str, str]] = []
+    driven: Dict[Tuple[str, str], str] = {}  # (dst, port) -> driving 'from'
     for e in flow.get("edges", []):
         src_id, src_port = _parse_port(e["from"], "edge", nodes, "out")
         dst_id, dst_port = _parse_port(e["to"], "edge", nodes, "in")
+        if (dst_id, dst_port) in driven:
+            # tick() keeps one value per input port, so a second edge would
+            # silently replace the first one's value on every tick.
+            raise FlowError(
+                f"node {dst_id!r}: input port {dst_port!r} is driven by more "
+                f"than one edge ({driven[(dst_id, dst_port)]!r} and "
+                f"{e['from']!r})")
+        driven[(dst_id, dst_port)] = e["from"]
         stype = nodes[src_id].spec.outputs[src_port]
         dtype = nodes[dst_id].spec.inputs[dst_port]
         if not _types_compatible(stype, dtype):
@@ -174,7 +184,6 @@ def load(flow: Dict[str, Any]) -> Tuple[Dict[str, _Node], List[Tuple[str, str, s
     # Every input port must be driven by exactly one edge — an unconnected
     # input is a flow authoring error, and failing at load beats a KeyError
     # mid-tick.
-    driven = {(dst, dport) for _, _, dst, dport in edges}
     for nid, node in nodes.items():
         for port in node.spec.inputs:
             if (nid, port) not in driven:

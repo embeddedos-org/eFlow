@@ -93,6 +93,20 @@ class TestLoad:
         with pytest.raises(FlowError, match="no incoming edge"):
             load(flow)
 
+    def test_input_driven_twice_rejected(self):
+        # Two edges into one input port: tick() would keep only the last
+        # edge's value, so load() must reject the flow.
+        flow = _mini(
+            [{"id": "s", "type": "sensor.tmp117", "params": {}},
+             {"id": "t", "type": "logic.threshold", "params": {}},
+             {"id": "c", "type": "debug.console", "params": {}}],
+            [{"from": "s:out", "to": "t:in"},
+             {"from": "s:out", "to": "c:in"},
+             {"from": "t:out", "to": "c:in"}],
+        )
+        with pytest.raises(FlowError, match="more than one edge"):
+            load(flow)
+
     def test_bad_version_rejected(self):
         with pytest.raises(FlowError, match="version"):
             load({"flow": "t", "version": 99, "nodes": [], "edges": []})
