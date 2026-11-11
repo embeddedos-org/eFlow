@@ -159,6 +159,59 @@ class TestNodes:
         assert len(log["console"]) == 3
 
 
+class TestParams:
+    @staticmethod
+    def _avg(window):
+        return _mini(
+            [{"id": "s", "type": "sensor.tmp117", "params": {}},
+             {"id": "f", "type": "filter.moving_avg",
+              "params": {"window": window}},
+             {"id": "c", "type": "debug.console", "params": {}}],
+            [{"from": "s:out", "to": "f:in"},
+             {"from": "f:out", "to": "c:in"}],
+        )
+
+    @staticmethod
+    def _threshold(params):
+        return _mini(
+            [{"id": "s", "type": "sensor.tmp117", "params": {}},
+             {"id": "t", "type": "logic.threshold", "params": params},
+             {"id": "c", "type": "debug.console", "params": {}}],
+            [{"from": "s:out", "to": "t:in"},
+             {"from": "t:out", "to": "c:in"}],
+        )
+
+    @pytest.mark.parametrize(
+        "window", [0, -1, 2.5, "8", True, None, 2**31,
+                   pytest.param(2**63, id="2**63"),
+                   pytest.param(10**400, id="10**400")])
+    def test_bad_window_rejected_at_load(self, window):
+        with pytest.raises(FlowError, match="'window' must be an integer"):
+            load(self._avg(window))
+
+    def test_window_at_max_loads(self):
+        nodes, _edges, _order = load(self._avg(2**31 - 1))
+        assert nodes["f"]._window.maxlen == 2**31 - 1
+
+    def test_window_one_runs(self):
+        log = run_flow(self._avg(1), ticks=3)
+        assert log["console"] == [
+            pytest.approx(25.0 + 5.0 * math.sin(t * 0.5)) for t in range(3)]
+
+    @pytest.mark.parametrize("params", [
+        {"level": "hot"}, {"level": True}, {"level": None},
+        {"level": float("nan")}, {"level": 10 ** 400}, {"hysteresis": "1"},
+    ])
+    def test_bad_threshold_params_rejected_at_load(self, params):
+        with pytest.raises(FlowError, match="must be a finite number"):
+            load(self._threshold(params))
+
+    def test_integer_threshold_params_accepted(self):
+        log = run_flow(self._threshold({"level": 25, "hysteresis": 2}),
+                       ticks=3)
+        assert len(log["console"]) == 3
+
+
 class TestTick:
     def test_tick_returns_port_values(self):
         nodes, edges, order = load(_flow("temp_monitor.json"))

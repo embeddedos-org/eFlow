@@ -50,6 +50,25 @@ def test_run_invalid_flow_executes_nothing(capsys, tmp_path):
     assert "nothing executed" in err
 
 
+def test_run_bad_window_reports_instead_of_crashing(capsys, tmp_path):
+    # window 0 used to pass validation and then divide by zero on tick 0.
+    doc = {"flow": "t", "version": 1,
+           "nodes": [{"id": "s", "type": "sensor.tmp117", "params": {}},
+                     {"id": "f", "type": "filter.moving_avg",
+                      "params": {"window": 0}},
+                     {"id": "c", "type": "debug.console", "params": {}}],
+           "edges": [{"from": "s:out", "to": "f:in"},
+                     {"from": "f:out", "to": "c:in"}]}
+    p = tmp_path / "window0.json"
+    p.write_text(json.dumps(doc), encoding="utf-8")
+    code, payload, err = _run_cli(["run", str(p)], capsys)
+    assert code == EXIT_INVALID == 2
+    assert payload["ok"] is False
+    assert any("'window'" in e for e in payload["errors"])
+    assert "log" not in payload
+    assert "nothing executed" in err
+
+
 def test_run_missing_file_fails_closed(capsys, tmp_path):
     code, payload, _err = _run_cli(
         ["run", str(tmp_path / "ghost.json")], capsys)

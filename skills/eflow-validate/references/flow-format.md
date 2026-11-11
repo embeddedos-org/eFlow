@@ -31,6 +31,10 @@ Edge object (no extra keys):
 - Every node `type` must be in the interpreter's `REGISTRY` (current
   v1 set: `sensor.tmp117`, `filter.moving_avg`, `logic.threshold`,
   `actuator.pwm_fan`, `actuator.gpio_led`, `debug.console`).
+- Params the interpreter reads must be usable: `filter.moving_avg`
+  `window` is an integer from 1 to 2147483647 (2^31 - 1; default 8);
+  `logic.threshold` `level` and `hysteresis` are finite numbers
+  (defaults 25.0 and 1.0).
 - Edge ports must exist on the referenced nodes, with the right
   direction (`from` = out-port, `to` = in-port).
 - Port types must be compatible: identical types, or int↔float; `any`

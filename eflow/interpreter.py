@@ -75,10 +75,49 @@ def _types_compatible(src: str, dst: str) -> bool:
     return False
 
 
+def _is_number(value: Any) -> bool:
+    # bool is an int subclass in Python, but true/false is not a number here.
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(float(value))
+    except OverflowError:  # an int too large for a float
+        return False
+
+
+# Upper bound for filter.moving_avg "window". deque(maxlen=...) raises
+# OverflowError above the platform's ssize_t; 2**31 - 1 fits everywhere.
+_MAX_WINDOW = 2**31 - 1
+
+
+def _check_params(node_id: str, ntype: str, params: Dict[str, Any]) -> None:
+    """Reject param values that step() cannot use, at load time.
+
+    Without this a bad value only fails inside step(): window 0 divides by
+    zero on the first tick, and a negative or non-integer window or a
+    non-numeric level raises a bare ValueError/TypeError, so ``eflow
+    validate`` and ``eflow run`` crash instead of reporting the error.
+    """
+    if ntype == "filter.moving_avg" and "window" in params:
+        window = params["window"]
+        if not (isinstance(window, int) and not isinstance(window, bool)
+                and 1 <= window <= _MAX_WINDOW):
+            raise FlowError(
+                f"node {node_id!r}: param 'window' must be an integer from 1 "
+                f"to {_MAX_WINDOW}, got {window!r}")
+    if ntype == "logic.threshold":
+        for key in ("level", "hysteresis"):
+            if key in params and not _is_number(params[key]):
+                raise FlowError(
+                    f"node {node_id!r}: param {key!r} must be a finite "
+                    f"number, got {params[key]!r}")
+
+
 class _Node:
     """A live node instance: params + per-tick private state."""
 
     def __init__(self, node_id: str, spec: NodeSpec, params: Dict[str, Any]):
+        _check_params(node_id, spec.ntype, params)
         self.id = node_id
         self.spec = spec
         self.params = params
