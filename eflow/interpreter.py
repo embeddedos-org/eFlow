@@ -250,11 +250,35 @@ def _topo_sort(nodes: Dict[str, _Node],
                 ready.append(nxt)
         ready.sort()
     if len(order) != len(nodes):
-        cycle = sorted(set(nodes) - set(order))
+        cycle = _find_cycle(deps)
         raise FlowError(
-            f"flow has a cycle involving nodes: {', '.join(cycle)} "
+            f"flow has a cycle: {' -> '.join(cycle)} "
             f"(dataflow graphs must be DAGs)")
     return order
+
+
+def _find_cycle(deps: Dict[str, set]) -> List[str]:
+    """Return one cycle left over after a failed topological sort.
+
+    ``deps`` maps each node the sort could not place to the predecessors it
+    is still waiting on (placed nodes have empty sets). Those predecessors
+    were not placed either, so walking from any unplaced node to one of its
+    predecessors must revisit a node; the revisited stretch is a cycle.
+    Nodes merely downstream of the cycle are not part of the result.
+    Returned in edge direction, closed: ``[a, b, a]`` for a -> b -> a.
+    """
+    nid = min(n for n, d in deps.items() if d)
+    walk: List[str] = []
+    seen: Dict[str, int] = {}
+    while nid not in seen:
+        seen[nid] = len(walk)
+        walk.append(nid)
+        nid = min(deps[nid])
+    cycle = walk[seen[nid]:]
+    cycle.reverse()  # the walk follows edges backwards
+    start = cycle.index(min(cycle))  # deterministic: start at the smallest id
+    cycle = cycle[start:] + cycle[:start]
+    return cycle + [cycle[0]]
 
 
 def tick(nodes: Dict[str, _Node],

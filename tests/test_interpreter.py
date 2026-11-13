@@ -47,6 +47,35 @@ class TestLoad:
         with pytest.raises(FlowError, match="cycle"):
             load(flow)
 
+    def test_cycle_error_names_the_path_not_downstream_nodes(self):
+        # a -> b -> c -> a is the cycle; d only hangs off it. The error
+        # must give the path in edge order and leave d out.
+        flow = _mini(
+            [{"id": "a", "type": "filter.moving_avg", "params": {}},
+             {"id": "b", "type": "filter.moving_avg", "params": {}},
+             {"id": "c", "type": "filter.moving_avg", "params": {}},
+             {"id": "d", "type": "actuator.pwm_fan", "params": {}}],
+            [{"from": "b:out", "to": "c:in"},
+             {"from": "c:out", "to": "a:in"},
+             {"from": "a:out", "to": "b:in"},
+             {"from": "c:out", "to": "d:duty"}],
+        )
+        with pytest.raises(FlowError) as exc:
+            load(flow)
+        assert "flow has a cycle: a -> b -> c -> a " in str(exc.value)
+        assert "d" not in str(exc.value).split("(")[0]
+
+    def test_cycle_error_for_a_self_loop(self):
+        flow = _mini(
+            [{"id": "s", "type": "sensor.tmp117", "params": {}},
+             {"id": "f", "type": "filter.moving_avg", "params": {}},
+             {"id": "t", "type": "logic.threshold", "params": {}}],
+            [{"from": "f:out", "to": "f:in"},
+             {"from": "f:out", "to": "t:in"}],
+        )
+        with pytest.raises(FlowError, match=r"flow has a cycle: f -> f "):
+            load(flow)
+
     def test_unknown_node_type(self):
         flow = _mini([{"id": "a", "type": "nope.x", "params": {}}], [])
         with pytest.raises(FlowError, match="unknown type"):
