@@ -100,6 +100,20 @@ def test_invalid_json_fails(capsys, tmp_path):
     assert any("invalid JSON" in e for e in payload["errors"])
 
 
+def test_non_utf8_file_fails_closed(capsys, tmp_path):
+    # JSON text is UTF-8; a Latin-1 or UTF-16 file must get the same
+    # machine-readable verdict as any other unparsable file, not a traceback.
+    for name, data in (("latin1.json", '{"flow": "caf\u00e9"}'.encode("latin-1")),
+                       ("utf16.json", '{"flow": "t"}'.encode("utf-16"))):
+        path = tmp_path / name
+        path.write_bytes(data)
+        code, payload, _err = _run_cli(path, capsys)
+        assert code == EXIT_INVALID == 2
+        assert payload["ok"] is False
+        assert any("invalid JSON" in e and "utf-8" in e
+                   for e in payload["errors"])
+
+
 def test_schema_structure_failure_fails(capsys, tmp_path):
     # missing required key 'flow' -> structural layer, before the interpreter
     path = _write(tmp_path, "nosuch.json",

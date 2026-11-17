@@ -75,3 +75,12 @@ def test_run_missing_file_fails_closed(capsys, tmp_path):
     assert code == EXIT_INVALID == 2
     assert payload["ok"] is False
     assert payload["errors"]
+
+
+def test_run_non_utf8_file_fails_closed(capsys, tmp_path):
+    path = tmp_path / "latin1.json"
+    path.write_bytes('{"flow": "caf\u00e9"}'.encode("latin-1"))
+    code, payload, _err = _run_cli(["run", str(path)], capsys)
+    assert code == EXIT_INVALID == 2
+    assert payload["ok"] is False
+    assert any("invalid JSON" in e for e in payload["errors"])

@@ -142,7 +142,7 @@ def _emit(payload: Dict[str, Any]) -> None:
 def validate_command(path: str) -> int:
     """Validate one flow file. Returns the process exit code (0 or 2)."""
     try:
-        raw = Path(path).read_text(encoding="utf-8")
+        raw = Path(path).read_bytes()
     except OSError as exc:
         reason = exc.strerror or str(exc)
         _emit({"ok": False, "path": path,
@@ -150,8 +150,10 @@ def validate_command(path: str) -> int:
         print(f"eflow validate: cannot read {path}: {reason}", file=sys.stderr)
         return EXIT_INVALID
     try:
-        flow = json.loads(raw)
-    except json.JSONDecodeError as exc:
+        # JSON text is UTF-8: bytes that are not get the same verdict as
+        # any other unparsable file instead of a UnicodeDecodeError traceback.
+        flow = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         _emit({"ok": False, "path": path,
                "errors": [f"invalid JSON: {exc}"], "warnings": []})
         print(f"eflow validate: invalid JSON in {path}: {exc}",
@@ -179,7 +181,7 @@ def _read_flow(path: str, verb: str):
     Emits the same machine-readable error shape as validate on failure.
     """
     try:
-        raw = Path(path).read_text(encoding="utf-8")
+        raw = Path(path).read_bytes()
     except OSError as exc:
         reason = exc.strerror or str(exc)
         _emit({"ok": False, "path": path,
@@ -187,8 +189,8 @@ def _read_flow(path: str, verb: str):
         print(f"eflow {verb}: cannot read {path}: {reason}", file=sys.stderr)
         return None, EXIT_INVALID
     try:
-        return json.loads(raw), None
-    except json.JSONDecodeError as exc:
+        return json.loads(raw.decode("utf-8")), None
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         _emit({"ok": False, "path": path,
                "errors": [f"invalid JSON: {exc}"], "warnings": []})
         print(f"eflow {verb}: invalid JSON in {path}: {exc}",
