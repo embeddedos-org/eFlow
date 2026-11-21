@@ -50,3 +50,12 @@ def test_malformed_arguments_fail_closed():
     assert eflow_validate({})["ok"] is False
     assert eflow_validate({"flow": "not-a-document"})["ok"] is False
     assert eflow_validate({"flow": [1, 2, 3]})["ok"] is False
+
+
+def test_skill_quotes_the_non_object_error():
+    # skills/eflow-validate/SKILL.md tells agents what a non-object `flow`
+    # returns; it must quote the error the handler really gives.
+    skill = (REPO / "skills" / "eflow-validate" / "SKILL.md").read_text(
+        encoding="utf-8")
+    error = eflow_validate({"flow": [1, 2, 3]})["errors"][0]
+    assert json.dumps(error) in skill
