@@ -87,9 +87,10 @@ a shell. The contract is identical; only the input shape differs:
   through the tool never runs the flow — the same discipline as
   the CLI, enforced in code.
 - **Fail-closed.** A non-object `flow` returns
-  `{"ok": false, "errors": ["flow must be a JSON object"], ...}`
-  rather than raising, and an unknown tool name through the
-  module's `call_tool` dispatcher returns a structured error.
+  `{"ok": false, "errors": ["'flow' must be a flow document (JSON object)"], ...}`
+  rather than raising. A `tools/call` for any other tool name gets
+  a JSON-RPC error from the server (`eflow/mcp_server.py`), code
+  `-32601`, message `tool not found: <name>`.
 
 Prefer the tool when a gateway session is already open; prefer
 the CLI when you are already in a shell with the file on disk.
