@@ -148,3 +148,15 @@ def test_module_entrypoint_works():
         cwd=REPO, capture_output=True, text=True)
     assert r.returncode == 2
     assert json.loads(r.stdout)["ok"] is False
+
+
+def test_node_missing_type_reports_missing_key(capsys, tmp_path):
+    """A node without a 'type' key should say 'missing required key',
+    not 'bad node type'."""
+    path = _write(tmp_path, "notype.json", _flow_doc(
+        [{"id": "a", "params": {}}], []))
+    code, payload, _err = _run_cli(path, capsys)
+    assert code == EXIT_INVALID == 2
+    assert payload["ok"] is False
+    assert any("missing required key 'type'" in e for e in payload["errors"])
+    assert not any("bad node type" in e for e in payload["errors"])

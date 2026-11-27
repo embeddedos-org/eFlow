@@ -84,10 +84,13 @@ def validate_structure(flow: Any) -> List[str]:
                 nid = n.get("id")
                 if not (isinstance(nid, str) and nid):
                     errors.append(f"{where}: 'id' must be a non-empty string")
-                ntype = n.get("type", "")
-                if not (isinstance(ntype, str)
-                        and _NODE_TYPE_RE.match(ntype)):
-                    errors.append(f"{where}: bad node type {ntype!r}")
+                if "type" not in n:
+                    errors.append(f"{where}: missing required key 'type'")
+                else:
+                    ntype = n["type"]
+                    if not (isinstance(ntype, str)
+                            and _NODE_TYPE_RE.match(ntype)):
+                        errors.append(f"{where}: bad node type {ntype!r}")
                 if "params" in n and not isinstance(n["params"], dict):
                     errors.append(f"{where}: 'params' must be an object")
 
